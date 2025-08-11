@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dashboard de Entrenamiento — Simple Mejorado</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<style>
+  body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+  .sidebar{transition:transform .28s ease;}
+  @media (max-width:767px){ .sidebar-hidden{transform:translateX(-100%);} }
+  .section{display:none;} .section.active{display:block;}
+  .card{transition:transform .18s ease,box-shadow .18s ease}
+  .card:hover{transform:translateY(-4px);box-shadow:0 10px 20px rgba(2,6,23,.06);}
+  .drag-over{background-color:rgba(59,130,246,.06);border:2px dashed rgba(59,130,246,.18);}
+  canvas{display:block;height:240px !important;max-height:360px;}
+  
+  /* Toast Notifications */
+  .toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #10b981;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .toast.error { background: #ef4444; }
+  .toast.warning { background: #f59e0b; }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  
+  /* Quick Entry Styles */
+  .quick-entry {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 24px;
+    color: white;
+  }
+  .quick-entry input, .quick-entry select {
+    background: rgba(255,255,255,0.9);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    color: #1f2937;
+  }
+  .quick-entry input:focus, .quick-entry select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
+  }
+  
+  /* Insights Cards */
+  .insight-card {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-left: 4px solid #f59e0b;
+  }
+  .insight-card.positive {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    border-left-color: #10b981;
+  }
+  .insight-card.warning {
+    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+    border-left-color: #ef4444;
+  }
+</style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 font-sans text-gray-800">
+<div class="flex min-h-screen">
+  <aside id="sidebar" class="sidebar fixed top-0 left-0 w-64 bg-gradient-to-b from-gray-800 to-gray-900 text-white h-full p-6 z-30 md:translate-x-0 sidebar-hidden">
+    <h3 class="text-xl font-bold mb-6 text-center">Mi Progreso</h3>
+    <nav class="space-y-2 text-sm">
+      <a href="#dashboard" data-section="dashboard" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">📊 Dashboard</a>
+      <a href="#registro-pesos" data-section="registro-pesos" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">🏋️ Registro Pesos</a>
+      <a href="#registro-cardio" data-section="registro-cardio" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">🏃 Registro Cardio</a>
+      <a href="#pautas-dieta" data-section="pautas-dieta" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">🥗 Pautas Dieta</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 ml-0 md:ml-64 p-6">
+    <button id="btn-menu" class="md:hidden mb-4 p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">☰ Menú</button>
+
+    <section id="dashboard" class="section active">
+      <h1 class="text-3xl font-bold text-center mb-6">Mi Dashboard</h1>
+      
+      <!-- QUICK ENTRY FORM -->
+      <div class="quick-entry mb-6">
+        <h2 class="text-xl font-bold mb-4 text-center">Entrada Rápida de Hoy</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Peso (kg)</label>
+            <input type="number" id="quick-weight" step="0.1" placeholder="85.0" class="w-full">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Entrenamiento</label>
+            <select id="quick-workout" class="w-full">
+              <option value="">Seleccionar...</option>
+              <option value="Pull">🏋️ Pull</option>
+              <option value="Push">💪 Push</option>
+              <option value="Piernas">🦵 Piernas</option>
+              <option value="Cardio">🏃 Cardio</option>
+              <option value="Descanso">😴 Descanso</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Cardio (km)</label>
+            <input type="number" id="quick-cardio" step="0.1" placeholder="3.5" class="w-full">
+          </div>
+          <div class="flex items-end">
+            <button id="quick-save" class="w-full bg-white text-purple-600 py-3 px-4 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+              💾 Guardar Todo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSIGHTS SIMPLES -->
+      <div id="insights-container" class="mb-6">
+        <!-- Los insights se generarán dinámicamente -->
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="card bg-white p-6 rounded-xl shadow">
+          <h2 class="text-lg font-semibold mb-4">Progreso General</h2>
+          <div class="flex items-center justify-center">
+            <div class="relative w-28 h-28">
+              <svg viewBox="0 0 100 100" class="w-28 h-28 -rotate-90">
+                <circle cx="50" cy="50" r="40" stroke="#e5e7eb" stroke-width="8" fill="none"></circle>
+                <circle id="progress-circle" cx="50" cy="50" r="40" stroke="#3b82f6" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="0 251"></circle>
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span id="progress-percentage" class="text-xl font-bold text-blue-600">0%</span>
+              </div>
+            </div>
+          </div>
+          <p id="days-elapsed" class="text-center text-sm text-gray-600 mt-3">Día 1 de 42</p>
+        </div>
+
+        <div class="card bg-white p-6 rounded-xl shadow">
+          <h2 class="text-lg font-semibold mb-4">Estado Actual</h2>
+          <div class="space-y-3">
+            <div class="flex justify-between"><span class="text-sm text-gray-600">Peso</span><span id="estado-peso-display" class="font-bold">85.0 kg</span></div>
+            <div class="flex justify-between"><span class="text-sm text-gray-600">Cintura</span><span id="estado-cintura-display" class="font-bold">? cm</span></div>
+            <div class="w-full bg-gray-200 rounded-full h-2 mt-3"><div id="peso-progress-bar" class="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500" style="width:0%"></div></div>
+          </div>
+        </div>
+
+        <div class="card bg-white p-6 rounded-xl shadow">
+          <h2 class="text-lg font-semibold mb-4">To-Do Hoy</h2>
+          <div id="todo-list" class="space-y-3"></div>
+          <div class="mt-3">
+            <div class="flex justify-between"><span class="text-sm text-gray-600">Completado</span><span id="adherencia-porcentaje" class="font-bold text-green-600">0%</span></div>
+            <div class="w-full bg-gray-200 rounded-full h-3 mt-2"><div id="adherencia-bar" class="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="card bg-white p-6 rounded-xl shadow" style="min-height:240px">
+          <h3 class="font-semibold mb-3">Evolución del Peso</h3>
+          <canvas id="peso-chart" height="240"></canvas>
+        </div>
+        <div class="card bg-white p-6 rounded-xl shadow" style="min-height:240px">
+          <h3 class="font-semibold mb-3">Adherencia Semanal</h3>
+          <canvas id="adherencia-chart" height="240"></canvas>
+        </div>
+      </div>
+
+      <!-- NUEVO: ANALYTICS SIMPLES -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="card bg-white p-6 rounded-xl shadow" style="min-height:240px">
+          <h3 class="font-semibold mb-3">📈 Progresión de Fuerza</h3>
+          <canvas id="fuerza-chart" height="240"></canvas>
+        </div>
+        <div class="card bg-white p-6 rounded-xl shadow" style="min-height:240px">
+          <h3 class="font-semibold mb-3">🎯 Distribución de Entrenamientos</h3>
+          <canvas id="distribucion-chart" height="240"></canvas>
+        </div>
+      </div>
+
+      <div class="card bg-white p-6 rounded-xl shadow mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold">Planificación Semanal</h3>
+          <button id="reset-plan" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors">🔄 Reset</button>
+        </div>
+        <div id="calendar-semanal" class="grid grid-cols-1 md:grid-cols-7 gap-3"></div>
+        <p class="text-xs text-gray-500 mt-3">Arrastra actividades. Colores: 🔵 Pull · 🟢 Push · 🟡 Piernas · 🔴 Cardio · ⚪ Descanso</p>
+      </div>
+    </section>
+
+    <section id="registro-pesos" class="section">
+      <h1 class="text-2xl font-bold mb-4">Registro de Pesos</h1>
+      <div class="flex gap-4 mb-4">
+        <div>
+          <label class="text-sm font-medium">Microciclo</label>
+          <select id="filtro-microciclo" class="mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="all">Todos</option>
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>Descarga</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-medium">Día</label>
+          <select id="filtro-dia" class="mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded shadow mb-6 overflow-x-auto">
+        <table id="tabla-pesos" class="min-w-full border">
+          <thead>
+            <tr class="bg-blue-600 text-white text-sm">
+              <th class="p-2">Ejercicio</th>
+              <th class="p-2">Peso</th>
+              <th class="p-2">Reps</th>
+              <th class="p-2">Estado</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="registro-cardio" class="section">
+      <h1 class="text-2xl font-bold mb-4">Registro de Cardio</h1>
+      <div class="mb-4">
+        <label class="text-sm font-medium">Microciclo</label>
+        <select id="filtro-microciclo-cardio" class="mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <option value="all">Todos</option>
+          <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>Descarga</option>
+        </select>
+      </div>
+      <div class="bg-white p-4 rounded shadow mb-6 overflow-x-auto">
+        <table id="tabla-cardio" class="min-w-full border">
+          <thead>
+            <tr class="bg-blue-600 text-white text-sm">
+              <th class="p-2">Fecha</th>
+              <th class="p-2">Sesión</th>
+              <th class="p-2">KM</th>
+              <th class="p-2">Tiempo</th>
+              <th class="p-2">Estado</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="pautas-dieta" class="section">
+      <h1 class="text-2xl font-bold mb-4">Pautas de Dieta</h1>
+      <div class="bg-white p-4 rounded shadow mb-6">
+        <form id="form-dieta" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input type="date" id="fecha-dieta" value="2025-08-11" class="p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          <input type="number" id="calorias-dieta" placeholder="Calorías" class="p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          <input type="number" id="proteinas-dieta" placeholder="Proteínas (g)" class="p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          <input type="number" id="carbos-dieta" placeholder="Carbohidratos (g)" class="p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          <input type="number" id="grasas-dieta" placeholder="Grasas (g)" class="p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="ayuno-dieta" class="rounded focus:ring-2 focus:ring-blue-500">
+            <label>Ayuno 16/8</label>
+          </div>
+          <div class="md:col-span-3 flex gap-2">
+            <button type="button" id="btn-guardar-dieta" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">Guardar Dieta</button>
+            <button type="button" id="btn-export" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition-colors">Export JSON</button>
+          </div>
+        </form>
+      </div>
+      <div class="bg-white p-4 rounded shadow overflow-x-auto">
+        <table id="tabla-dieta" class="min-w-full border">
+          <thead>
+            <tr class="bg-blue-600 text-white text-sm">
+              <th class="p-2">Fecha</th>
+              <th class="p-2">Calorías</th>
+              <th class="p-2">Proteínas</th>
+              <th class="p-2">Estado</th>
+              <th class="p-2">Feedback</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<script>
+// ... existing code ...
+</script>
